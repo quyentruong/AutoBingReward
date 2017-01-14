@@ -87,3 +87,7 @@ ENV/
 
 # Rope project settings
 .ropeproject
+.idea/
+AutoBingReward.iml
+.DS_Store
+myfile.txt
