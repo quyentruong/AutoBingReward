@@ -17,8 +17,8 @@ crontab = False  # If use crontab or ssh, change to True
 # Second, select that profile and login your account in Bing with keeping sign in option
 # Third, run this program
 # PS: run test() first to make sure it work
-geckoPath = os.path.dirname(__file__) if os.path.dirname(__file__) != "" else os.getcwd()
-geckoPath += "/driver"
+pathlib = os.path.dirname(__file__) if os.path.dirname(__file__) != "" else os.getcwd()
+geckoPath = pathlib + "/driver"
 path = str()
 if platform.system() == "Darwin":
     path = home + "/Library/Application Support/Firefox/Profiles/"
@@ -69,7 +69,8 @@ edge = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, lik
 
 def get_random_words_file(times):
     # read file
-    with open('words.txt') as f:
+    file = pathlib + '/words.txt'
+    with open(file) as f:
         alist = random.sample(f.readlines(), times)  # get random words from file
     alist = [line.rstrip() for line in alist]  # strip \n
     return alist
@@ -138,19 +139,20 @@ def open_firefox():
     profile.set_preference("general.useragent.override", edge)
     driver = webdriver.Firefox(firefox_profile=profile, executable_path=geckoPath)
     driver.implicitly_wait(30)
-    driver.get("http://bing.com/")
-    # driver.get("http://bing.com/rewardsapp/bepflyoutpage?style=modular")
-    # progress = driver.find_elements_by_class_name("progress")
-    # for i in progress:
-    #     if driver.current_url != "http://bing.com/rewardsapp/bepflyoutpage?style=modular":
-    #         driver.get("http://bing.com/rewardsapp/bepflyoutpage?style=modular")
-    #
-    #     if len(i.text.split(" ")) != 4:
-    #         continue
-    #     e = i.text.split(" ")
-    #     if e[2] == '10':
-    #         i.click()
-    # driver.quit()
+    # driver.get("http://bing.com/")
+    driver.get("http://bing.com/rewardsapp/bepflyoutpage?style=modular")
+    progress = driver.find_elements_by_class_name("progress")
+    for i in progress:
+        print(i.text)
+        #     if driver.current_url != "http://bing.com/rewardsapp/bepflyoutpage?style=modular":
+        #         driver.get("http://bing.com/rewardsapp/bepflyoutpage?style=modular")
+        #
+        #     if len(i.text.split(" ")) != 4:
+        #         continue
+        #     e = i.text.split(" ")
+        #     if e[2] == '10':
+        #         i.click()
+        # driver.quit()
 
 
 def check_point(driver, nbrowser):
@@ -161,11 +163,19 @@ def check_point(driver, nbrowser):
         i = 2
     driver.get("http://bing.com/rewardsapp/bepflyoutpage?style=modular")
     progress = driver.find_elements_by_class_name("progress")[i].text
+
+    # click daily point
+    #
+    dailypoint_click = driver.find_elements_by_class_name("progress")[3]
+    dailypoint = dailypoint_click.text.split(' ')
+    if int(dailypoint[2]) == 10:
+        dailypoint_click.click()
+    #########################
     progressStr = progress
     progress = progress.split('/')
-    if progress[0] == progress[1]:
-        return True
-    return False
+    if int(progress[0]) < int(progress[1]):
+        return False
+    return True
 
 
 def test():
