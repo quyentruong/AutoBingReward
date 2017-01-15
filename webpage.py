@@ -32,6 +32,13 @@ elif platform.system() == "Linux":
     else:
         print("Not support your processor")
         exit(0)
+elif platform.system() == "Windows":
+    if platform.machine() == "AMD64":
+        path = home + "/AppData/Roaming/Mozilla/Firefox/Profiles/"
+        geckoPath += "/geckodriver_win64.exe"
+    else:
+        print("Not support your processor")
+        exit(0)
 else:
     print("Not support your system")
     exit(0)
