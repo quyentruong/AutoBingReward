@@ -72,8 +72,8 @@ dList.reverse()
 
 # Setup
 timeout = 7
-logPath = pathlib + '/myfile.txt'
-if date.today() > date.fromtimestamp(os.path.getmtime(logPath)):
+logPath = pathlib + '/query.txt'
+if not os.path.isfile(logPath) or date.today() > date.fromtimestamp(os.path.getmtime(logPath)):
     logfile = open(logPath, 'w')
 else:
     logfile = open(logPath, 'a')
