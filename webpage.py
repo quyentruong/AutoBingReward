@@ -1,14 +1,15 @@
 import time
 from pyvirtualdisplay import Display
-from datetime import datetime
+from datetime import datetime, timedelta, date
 from selenium import webdriver
 import random
 import os
 import platform
-from os.path import expanduser
+from sendmail import send
+import jsonconfig
 
-home = expanduser("~")
-crontab = False  # If use crontab or ssh, change to True
+home = os.path.expanduser("~")
+crontab = False  # If use crontab or ssh, change to True, need to setup some stuff if required
 
 # Before run this program. Please follow the instruction
 # First, create profile SELENIUM
@@ -65,13 +66,22 @@ if not found or not os.path.isdir(folder):
     print("You didn't setup your Firefox profile SELENIUM")
     exit(0)
 
+# Why I put it ?
 pList.reverse()
 dList.reverse()
+
 # Setup
 timeout = 7
-logfile = open('myfile.txt', 'a')
+logPath = pathlib + '/myfile.txt'
+if date.today() > date.fromtimestamp(os.path.getmtime(logPath)):
+    logfile = open(logPath, 'w')
+else:
+    logfile = open(logPath, 'a')
 android = "Mozilla/5.0 (Linux; Android 6.0.1; SM-G928F Build/MMB29K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.85 Mobile Safari/537.36"
 edge = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.79 Safari/537.36 Edge/14.14393"
+
+proFile = pathlib + '/profile.json'
+profileData = jsonconfig.readjson(proFile)
 
 
 def get_random_words_file(times):
@@ -98,12 +108,6 @@ def shuffle_list(times):
     return alist
 
 
-# driver.get("http://bing.com/rewardsapp/bepflyoutpage?style=modular")
-# driver.find_element_by_id("credits").find_elements_by_class_name("details")[1].find_element_by_class_name("progress").text
-# 150/150
-# driver.find_element_by_id("credits").find_elements_by_class_name("details")[2].find_element_by_class_name("progress").text
-# 100/100
-
 # bing.com
 # driver.find_element_by_id("id_n").text
 # Quyen
@@ -114,6 +118,11 @@ progressStr = str()
 
 def auto_bing(pbrowser, search_times, nbrowser):
     for p in range(len(pList)):
+        if pList[p] not in profileData:
+            profileData[pList[p]] = {'isSend': 0, 'name': str(pList[p]),
+                                     'datetime': jsonconfig.toStrtime(datetime.now())}
+            jsonconfig.writejson(proFile, profileData)
+        user = profileData[pList[p]]['name']
         alist = shuffle_list(search_times)
         if crontab:
             display = Display(visible=0, size=(400, 300))
@@ -121,23 +130,28 @@ def auto_bing(pbrowser, search_times, nbrowser):
         profile = webdriver.FirefoxProfile(dList[p])
         profile.set_preference("general.useragent.override", pbrowser)
         driver = webdriver.Firefox(firefox_profile=profile, executable_path=geckoPath)
-        driver.implicitly_wait(30)
+        driver.implicitly_wait(90)
         # driver.get("https://account.microsoft.com/rewards/dashboard")
         # time.sleep(2)
         # name = driver.find_element_by_id("id_n").text
         # name = driver.find_element_by_class_name("msame_Header_name").text
         for i in range(len(alist)):
-            if check_point(driver, nbrowser):
-                break
             strtime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             driver.get("http://bing.com/search?q=" + alist[i])
             time.sleep(random.randint(10, 15))
-            print([i + 1], strtime, nbrowser, "in profile", pList[p], progressStr, "Searching:", alist[i],
-                  file=logfile)
+            # user = driver.find_element_by_id("id_n").text
+            # if user != profileData[pList[p]]['name']:
+            #     profileData[pList[p]]['name'] = user
+            #     jsonconfig.writejson(proFile, profileData)
+            if check_point(driver, nbrowser, user, pList[p]):
+                break
+            print([i + 1], strtime, nbrowser, "for", user, "in profile", pList[p],
+                  progressStr, "Searching:", alist[i], file=logfile)
         driver.quit()
 
 
-def open_firefox():
+# use this method to open firefox with specific profile to manually do questions
+def open_firefox(k):
     print("List of profiles in FireFox:")
     for i in range(len(pList)):
         print([i + 1], pList[i])
@@ -145,8 +159,10 @@ def open_firefox():
     profile = webdriver.FirefoxProfile(dList[int(p) - 1])
     profile.set_preference("general.useragent.override", edge)
     driver = webdriver.Firefox(firefox_profile=profile, executable_path=geckoPath)
-    driver.implicitly_wait(30)
+    driver.implicitly_wait(90)
     # driver.get("http://bing.com/")
+    # name = driver.find_element_by_id("id_n").text
+    # print(name)
     driver.get("http://bing.com/rewardsapp/bepflyoutpage?style=modular")
     progress = driver.find_elements_by_class_name("progress")
     for i in progress:
@@ -159,10 +175,12 @@ def open_firefox():
         #     e = i.text.split(" ")
         #     if e[2] == '10':
         #         i.click()
-        # driver.quit()
+    if k == 1:
+        driver.quit()
 
 
-def check_point(driver, nbrowser):
+# check if do enough point in a day
+def check_point(driver, nbrowser, user, profile):
     global progressStr
     if nbrowser == "Edge":
         i = 1
@@ -170,21 +188,41 @@ def check_point(driver, nbrowser):
         i = 2
     driver.get("http://bing.com/rewardsapp/bepflyoutpage?style=modular")
     progress = driver.find_elements_by_class_name("progress")[i].text
+    bonus = driver.find_elements_by_class_name("progress")[0].text
 
     # click daily point
     #
     dailypoint_click = driver.find_elements_by_class_name("progress")[3]
+    dailypoint_click2 = driver.find_elements_by_class_name("progress")[4]
     dailypoint = dailypoint_click.text.split(' ')
-    if int(dailypoint[2]) == 10:
+    dailypoint2 = dailypoint_click2.text.split(' ')
+    if int(dailypoint[2]) == 10 or int(dailypoint[2]) == 5:
         dailypoint_click.click()
+    elif int(dailypoint[2]) == 30:
+        # send mail
+        if jsonconfig.toDatetime(profileData[profile]["datetime"]) \
+                + timedelta(hours=23) + timedelta(minutes=50) < datetime.now():
+            profileData[profile]["isSend"] = 0
+            profileData[profile]["datetime"] = jsonconfig.toStrtime(datetime.now())
+            jsonconfig.writejson(proFile, profileData)
+
+        if profileData[profile]["isSend"] == 0:
+            profileData[profile]["isSend"] = 1
+            jsonconfig.writejson(proFile, profileData)
+            send(user, "Please do bing questions before " + jsonconfig.toStrtime(datetime.now() + timedelta(days=1)))
+
+        if int(dailypoint2[2]) == 10 or int(dailypoint2[2]) == 5:
+            dailypoint_click2.click()
     #########################
     progressStr = progress
     progress = progress.split('/')
-    if int(progress[0]) < int(progress[1]):
+    bonus = bonus.split('/')
+    if int(progress[0]) < int(progress[1]) or (int(bonus[0]) + 30) < int(bonus[1]):
         return False
     return True
 
 
+# test if setting work
 def test():
     if crontab:
         display = Display(visible=0, size=(400, 300))
@@ -206,15 +244,8 @@ def test():
     driver.quit()
 
 
-# print(shuffle_list(30))
-# check_point()
-# print(shuffle_list(4))
-# print(folder)
-
-# print(pList)
-# print(dList)
-# open_firefox()
-auto_bing(edge, 30, "Edge")
-auto_bing(android, 20, "Android")
+# open_firefox(0)
+auto_bing(edge, 35, "Edge")
+auto_bing(android, 25, "Android")
 # test()
 logfile.close()
